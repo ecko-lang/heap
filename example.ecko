@@ -1,0 +1,19 @@
+# heap demo: a priority-ordered task queue.
+import "./main.ecko"
+heap = main
+
+mut h = heap.new()
+h = heap.push(h, 3, "deploy")
+h = heap.push(h, 1, "test")
+h = heap.push(h, 2, "build")
+
+print("processing in priority order:")
+while not heap.is_empty(h) {
+    r = heap.pop(h)
+    item = r[0]
+    h = r[1]
+    print("  [{item[0]}] {item[1]}")
+}
+
+top = heap.top_k([9, 3, 7, 1, 5], 3)
+print("top 3 smallest of [9,3,7,1,5]: {top}")

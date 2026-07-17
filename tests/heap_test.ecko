@@ -1,0 +1,44 @@
+# Tests for the heap package - offline, deterministic.
+import std.test
+import "../main.ecko"
+heap = main
+
+test.case("push then pop returns items smallest-priority first", || {
+    mut h = heap.new()
+    h = heap.push(h, 5, "five")
+    h = heap.push(h, 1, "one")
+    h = heap.push(h, 3, "three")
+    test.eq(heap.size(h), 3)
+    r = heap.pop(h)
+    test.eq(r[0], [1, "one"])
+    r2 = heap.pop(r[1])
+    test.eq(r2[0], [3, "three"])
+    r3 = heap.pop(r2[1])
+    test.eq(r3[0], [5, "five"])
+    test.ok(heap.is_empty(r3[1]), "empty after draining")
+})
+
+test.case("peek shows the min without removing it", || {
+    mut h = heap.new()
+    h = heap.push(h, 2, "b")
+    h = heap.push(h, 1, "a")
+    test.eq(heap.peek(h), [1, "a"])
+    test.eq(heap.size(h), 2)
+})
+
+test.case("a new heap is empty", || {
+    test.ok(heap.is_empty(heap.new()), "empty")
+    test.eq(heap.peek(heap.new()), null)
+    test.eq(heap.size(heap.new()), 0)
+})
+
+test.case("pop from an empty heap raises", || {
+    caught = try { heap.pop(heap.new()) } catch (e) { get(e, "kind") }
+    test.eq(caught, "value")
+})
+
+test.case("from_list heapifies; top_k returns the k smallest", || {
+    h = heap.from_list([[3, "c"], [1, "a"], [2, "b"]])
+    test.eq(heap.peek(h), [1, "a"])
+    test.eq(heap.top_k([5, 1, 4, 2, 3], 3), [1, 2, 3])
+})

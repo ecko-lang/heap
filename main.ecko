@@ -1,0 +1,56 @@
+# heap - a priority queue (min-heap) for Ecko, as an immutable skew heap.
+#
+#   import heap
+#
+#   h = heap.new()
+#   h = heap.push(h, 5, "task")      # (priority, value)
+#   r = heap.pop(h)                  # [ [1, "..."], new_heap ]  - smallest first
+#   heap.peek(h)                     # [priority, value] or null
+#   heap.top_k([5, 1, 4, 2], 2)      # [1, 2]
+#
+# A heap is `null` (empty) or a node `{ p, v, l, r }`. Every operation returns a
+# new heap - nothing is mutated. Merge is O(log n) amortized (no list copying),
+# so push/pop are too. Pure Ecko; no capabilities. (Exports `push`/`pop`, which
+# shadow the list builtins, but this module never calls them.)
+
+# The one core operation: merge two heaps, keeping the smaller root and swapping
+# children (the skew-heap self-balancing trick).
+fn merge(a, b) {
+    if a == null { return b }
+    if b == null { return a }
+    if a.p <= b.p {
+        { p: a.p, v: a.v, l: merge(a.r, b), r: a.l }
+    } else {
+        { p: b.p, v: b.v, l: merge(b.r, a), r: b.l }
+    }
+}
+
+export fn new() = null
+
+export fn is_empty(h) = h == null
+
+export fn size(h) = if h == null { 0 } else { 1 + size(h.l) + size(h.r) }
+
+# push(h, priority, value) -> a new heap with the item added.
+export fn push(h, priority, value) = merge(h, { p: priority, v: value, l: null, r: null })
+
+# peek(h) -> [priority, value] of the minimum, or null if empty.
+export fn peek(h) = if h == null { null } else { [h.p, h.v] }
+
+# pop(h) -> [ [priority, value], new_heap ]. Raises kind-"value" if empty.
+export fn pop(h) {
+    if h == null { error({ kind: "value", message: "heap.pop: empty heap" }) }
+    [[h.p, h.v], merge(h.l, h.r)]
+}
+
+# from_list(pairs) -> a heap built from [priority, value] pairs.
+export fn from_list(pairs) {
+    mut h = null
+    for pair in pairs {
+        h = push(h, pair[0], pair[1])
+    }
+    h
+}
+
+# top_k(items, k) -> the k smallest values of a plain list, ascending.
+export fn top_k(items, k) = take(sort(items), k)
