@@ -3,7 +3,7 @@ import std.test
 import "../main.ecko"
 heap = main
 
-test.case("push then pop returns items smallest-priority first", || {
+test.case("push then pop returns items smallest-priority first", fn() {
     mut h = heap.new()
     h = heap.push(h, 5, "five")
     h = heap.push(h, 1, "one")
@@ -18,7 +18,7 @@ test.case("push then pop returns items smallest-priority first", || {
     test.ok(heap.is_empty(r3[1]), "empty after draining")
 })
 
-test.case("peek shows the min without removing it", || {
+test.case("peek shows the min without removing it", fn() {
     mut h = heap.new()
     h = heap.push(h, 2, "b")
     h = heap.push(h, 1, "a")
@@ -26,18 +26,18 @@ test.case("peek shows the min without removing it", || {
     test.eq(heap.size(h), 2)
 })
 
-test.case("a new heap is empty", || {
+test.case("a new heap is empty", fn() {
     test.ok(heap.is_empty(heap.new()), "empty")
     test.eq(heap.peek(heap.new()), null)
     test.eq(heap.size(heap.new()), 0)
 })
 
-test.case("pop from an empty heap raises", || {
+test.case("pop from an empty heap raises", fn() {
     caught = try { heap.pop(heap.new()) } catch (e) { get(e, "kind") }
     test.eq(caught, "value")
 })
 
-test.case("from_list heapifies; top_k returns the k smallest", || {
+test.case("from_list heapifies; top_k returns the k smallest", fn() {
     h = heap.from_list([[3, "c"], [1, "a"], [2, "b"]])
     test.eq(heap.peek(h), [1, "a"])
     test.eq(heap.top_k([5, 1, 4, 2, 3], 3), [1, 2, 3])
