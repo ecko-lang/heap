@@ -1,7 +1,7 @@
-# heap
+# Heap - Ecko Std Lib Package
 
 A priority queue (min-heap) for [Ecko](https://ecko.sh), written in Ecko as an
-immutable **skew heap**. Push/pop/peek, heapify, and top-k. Pure — no capabilities.
+immutable **skew heap**. Push/pop/peek, heapify, and top-k.
 
 ## Install
 
@@ -27,7 +27,7 @@ heap.top_k([5, 1, 4, 2], 2)     # [1, 2]
 |---|---|
 | `new()` | An empty heap |
 | `push(h, priority, value)` | A new heap with the item added |
-| `pop(h)` | `[ [priority, value], new_heap ]` — min first (raises kind-`"value"` if empty) |
+| `pop(h)` | `[ [priority, value], new_heap ]` - min first (raises kind-`"value"` if empty) |
 | `peek(h)` | `[priority, value]` of the min, or `null` |
 | `size(h)` · `is_empty(h)` | count / emptiness |
 | `from_list(pairs)` | heapify a list of `[priority, value]` pairs |
@@ -44,4 +44,4 @@ ecko test tests/
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).
