@@ -25,25 +25,29 @@ fn merge(a, b) {
     }
 }
 
+## new() -> an empty heap. Heaps are values, so every operation returns a new
+## one rather than mutating.
 export fn new() = null
 
+## is_empty(h) -> true when size is 0.
 export fn is_empty(h) = h == null
 
+## size(h) -> item count.
 export fn size(h) = if h == null { 0 } else { 1 + size(h.l) + size(h.r) }
 
-# push(h, priority, value) -> a new heap with the item added.
+## push(h, priority, value) -> a new heap with the item added.
 export fn push(h, priority, value) = merge(h, { p: priority, v: value, l: null, r: null })
 
-# peek(h) -> [priority, value] of the minimum, or null if empty.
+## peek(h) -> [priority, value] of the minimum, or null if empty.
 export fn peek(h) = if h == null { null } else { [h.p, h.v] }
 
-# pop(h) -> [ [priority, value], new_heap ]. Raises kind-"value" if empty.
+## pop(h) -> [ [priority, value], new_heap ]. Raises kind-"value" if empty.
 export fn pop(h) {
     if h == null { error({ kind: "value", message: "heap.pop: empty heap" }) }
     [[h.p, h.v], merge(h.l, h.r)]
 }
 
-# from_list(pairs) -> a heap built from [priority, value] pairs.
+## from_list(pairs) -> a heap built from [priority, value] pairs.
 export fn from_list(pairs) {
     mut h = null
     for pair in pairs {
@@ -52,5 +56,5 @@ export fn from_list(pairs) {
     h
 }
 
-# top_k(items, k) -> the k smallest values of a plain list, ascending.
+## top_k(items, k) -> the k smallest values of a plain list, ascending.
 export fn top_k(items, k) = take(sort(items), k)
