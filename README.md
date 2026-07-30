@@ -6,7 +6,7 @@ immutable **skew heap**. Push/pop/peek, heapify, and top-k.
 ## Install
 
 ```bash
-ecko get github.com/ecko-sh/heap
+ecko get github.com/ecko-lang/heap
 ```
 
 ## Usage
