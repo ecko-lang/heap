@@ -14,11 +14,11 @@ ecko get github.com/ecko-lang/heap
 ```ecko
 import heap
 
-h = heap.new()
-h = heap.push(h, 5, "task")     # (priority, value)
-r = heap.pop(h)                 # [ [1, "..."], new_heap ]  - smallest first
-heap.peek(h)                    # [priority, value] or null
-heap.top_k([5, 1, 4, 2], 2)     # [1, 2]
+mut h = heap.new()
+h = heap.push(h, 5, "task")  # (priority, value)
+r = heap.pop(h)  # [[5, "task"], new_heap] - smallest first
+heap.peek(h)  # [priority, value] or null
+heap.top_k([5, 1, 4, 2], 2)  # [1, 2]
 ```
 
 ## API
