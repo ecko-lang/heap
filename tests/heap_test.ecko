@@ -34,11 +34,96 @@ test.case("a new heap is empty", fn() {
 
 test.case("pop from an empty heap raises", fn() {
     caught = try { heap.pop(heap.new()) } catch (e) { get(e, "kind") }
-    test.eq(caught, "value")
+    test.eq(caught, "heap")
 })
 
 test.case("from_list heapifies; top_k returns the k smallest", fn() {
     h = heap.from_list([[3, "c"], [1, "a"], [2, "b"]])
     test.eq(heap.peek(h), [1, "a"])
     test.eq(heap.top_k([5, 1, 4, 2, 3], 3), [1, 2, 3])
+})
+
+fn kind_reason(f) = try {
+    f()
+    null
+} catch (e) { "{get(e, "kind")}/{get(e, "reason")}" }
+
+test.case("size does not overflow the recursion limit on a lopsided heap", fn() {
+    mut h = heap.new()
+    for i in 0..5000 {
+        h = heap.push(h, 5000 - i, i)
+    }
+    test.eq(heap.size(h), 5000)
+    test.eq(heap.peek(h), [1, 4999])
+})
+
+test.case("ascending pushes then a full drain stays in order", fn() {
+    mut h = heap.new()
+    for i in 0..3000 {
+        h = heap.push(h, i % 7, i)
+    }
+    mut last = -1
+    mut n = 0
+    while not heap.is_empty(h) {
+        r = heap.pop(h)
+        test.ok(r[0][0] >= last, "non-decreasing")
+        last = r[0][0]
+        h = r[1]
+        n += 1
+    }
+    test.eq(n, 3000)
+})
+
+test.case("equal priorities come out in insertion order", fn() {
+    mut h = heap.new()
+    for i in 0..200 {
+        h = heap.push(h, i % 3, i)
+    }
+    mut got = []
+    while not heap.is_empty(h) {
+        r = heap.pop(h)
+        got = core.push(got, r[0][1])
+        h = r[1]
+    }
+    want = flatten(
+        [
+            filter(range(0, 200), fn(i) i % 3 == 0),
+            filter(range(0, 200), fn(i) i % 3 == 1),
+            filter(range(0, 200), fn(i) i % 3 == 2),
+        ],
+    )
+    test.eq(got, want)
+})
+
+test.case("from_list of an empty list is an empty heap", fn() {
+    test.ok(heap.is_empty(heap.from_list([])), "empty")
+})
+
+test.case("pop on an empty heap is heap/empty", fn() {
+    test.eq(kind_reason(fn() heap.pop(heap.new())), "heap/empty")
+})
+
+test.case("mixed priority types are refused at push with the package name", fn() {
+    h = heap.push(heap.new(), 1, "a")
+    test.eq(kind_reason(fn() heap.push(h, "x", "b")), "bug/bad_priority")
+    test.eq(kind_reason(fn() heap.push(heap.new(), null, "b")), "bug/bad_priority")
+    test.eq(
+        kind_reason(fn() heap.push(heap.push(heap.new(), 1.5m, "a"), 2.0, "b")),
+        "bug/bad_priority",
+    )
+    test.eq(heap.size(heap.push(h, 2.5, "c")), 2)
+})
+
+test.case("a non-heap argument is a bug naming the function", fn() {
+    test.eq(kind_reason(fn() heap.is_empty([])), "bug/not_a_heap")
+    test.eq(kind_reason(fn() heap.peek([1, 2])), "bug/not_a_heap")
+    test.eq(kind_reason(fn() heap.from_list([[1]])), "bug/bad_argument")
+})
+
+test.case("top_k handles k <= 0 and k > len, and refuses unorderable items", fn() {
+    test.eq(heap.top_k([3, 1, 2], 0), [])
+    test.eq(heap.top_k([3, 1, 2], 10), [1, 2, 3])
+    test.eq(kind_reason(fn() heap.top_k([3, 1], -1)), "bug/bad_argument")
+    test.eq(kind_reason(fn() heap.top_k([{ a: 1 }, { a: 2 }], 1)), "bug/bad_argument")
+    test.eq(kind_reason(fn() heap.top_k([1, "a"], 1)), "bug/bad_argument")
 })

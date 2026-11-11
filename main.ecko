@@ -1,60 +1,234 @@
 # heap - a priority queue (min-heap) for Ecko, as an immutable skew heap.
 #
-#   import heap
-#
-#   h = heap.new()
-#   h = heap.push(h, 5, "task")      # (priority, value)
-#   r = heap.pop(h)                  # [ [1, "..."], new_heap ]  - smallest first
-#   heap.peek(h)                     # [priority, value] or null
-#   heap.top_k([5, 1, 4, 2], 2)      # [1, 2]
-#
-# A heap is `null` (empty) or a node `{ p, v, l, r }`. Every operation returns a
-# new heap - nothing is mutated. Merge is O(log n) amortized (no list copying),
-# so push/pop are too. Pure Ecko; no capabilities. (Exports `push`/`pop`, which
-# shadow the list builtins, but this module never calls them.)
+# A heap is a map `{ root, count, seq, family }`: `root` is null (empty) or a
+# node `{ p, v, s, l, r }`, where `s` is the insertion number that breaks ties,
+# so equal priorities come out first in, first out. Every operation returns a
+# new heap; nothing is mutated. Merge is an explicit loop rather than recursion,
+# so no heap shape can reach the recursion limit. Pure Ecko; no capabilities.
+# (Exports `push`/`pop`, which shadow the list builtins; `core.push` reaches
+# the builtin here.)
 
-# The one core operation: merge two heaps, keeping the smaller root and swapping
-# children (the skew-heap self-balancing trick).
-fn merge(a, b) {
-    if a == null { return b }
-    if b == null { return a }
-    if a.p <= b.p {
-        { p: a.p, v: a.v, l: merge(a.r, b), r: a.l }
-    } else {
-        { p: b.p, v: b.v, l: merge(b.r, a), r: b.l }
+# Which priorities can share a heap: ints and floats order together, decimals
+# and strings only among themselves.
+fn family(p) = match type_of(p) {
+    "int" => "number"
+    "float" => "number"
+    "decimal" => "decimal"
+    "string" => "string"
+    _ => null
+}
+
+fn is_heap(h) = type_of(h) == "map" and
+    get(h, "count") != null and
+    "root" in h and
+    "seq" in h and
+    "family" in h
+
+fn check_heap(fname, h) {
+    unless is_heap(h) {
+        error(
+            {
+                kind: "bug",
+                reason: "not_a_heap",
+                message: "heap.{fname}: expected a heap from heap.new(), got {type_of(h)}",
+            },
+        )
     }
 }
 
-## new() -> an empty heap. Heaps are values, so every operation returns a new
-## one rather than mutating.
-export fn new() = null
+# True when node `a` comes out before node `b`.
+fn before(a, b) = a.p < b.p or a.p == b.p and a.s < b.s
 
-## is_empty(h) -> true when size is 0.
-export fn is_empty(h) = h == null
-
-## size(h) -> item count.
-export fn size(h) = if h == null { 0 } else { 1 + size(h.l) + size(h.r) }
-
-## push(h, priority, value) -> a new heap with the item added.
-export fn push(h, priority, value) = merge(h, { p: priority, v: value, l: null, r: null })
-
-## peek(h) -> [priority, value] of the minimum, or null if empty.
-export fn peek(h) = if h == null { null } else { [h.p, h.v] }
-
-## pop(h) -> [ [priority, value], new_heap ]. Raises kind-"value" if empty.
-export fn pop(h) {
-    if h == null { error({ kind: "value", message: "heap.pop: empty heap" }) }
-    [[h.p, h.v], merge(h.l, h.r)]
+# Meld two skew heaps. Walks the right spines, keeping the smaller root each
+# step, then rebuilds bottom-up, swapping children (the skew-heap balancing).
+fn meld(a, b) {
+    mut path = []
+    mut x = a
+    mut y = b
+    while x != null and y != null {
+        if before(y, x) {
+            t = x
+            x = y
+            y = t
+        }
+        path = core.push(path, x)
+        x = x.r
+    }
+    mut acc = x ?? y
+    mut i = len(path) - 1
+    while i >= 0 {
+        n = path[i]
+        acc = { p: n.p, v: n.v, s: n.s, l: acc, r: n.l }
+        i -= 1
+    }
+    acc
 }
 
-## from_list(pairs) -> a heap built from [priority, value] pairs.
+## Returns an empty heap. Heaps are values: every operation returns a new heap
+## rather than changing the one it was given.
+##
+## example:
+##   h = heap.push(heap.new(), 1, "first")
+export fn new() = { root: null, count: 0, seq: 0, family: null }
+
+## Returns true when the heap holds no items.
+##
+## errors: `bug`/`not_a_heap` when `h` is not a heap.
+export fn is_empty(h) {
+    check_heap("is_empty", h)
+    h.count == 0
+}
+
+## Returns the number of items in the heap. O(1).
+##
+## errors: `bug`/`not_a_heap` when `h` is not a heap.
+export fn size(h) {
+    check_heap("size", h)
+    h.count
+}
+
+## Returns a new heap with `value` added at `priority`.
+##
+## Priorities are Ints and Floats (which mix), Decimals, or Strings; one heap
+## holds one of those families. Items with equal priority come out in the
+## order they were pushed. O(log n) amortized.
+##
+## errors: `bug`/`not_a_heap` when `h` is not a heap; `bug`/`bad_priority` when
+## `priority` is not a number, decimal or string, or cannot be ordered against
+## the priorities already in the heap.
+##
+## example:
+##   h = heap.push(heap.new(), 5, "task")
+export fn push(h, priority, value) {
+    check_heap("push", h)
+    fam = family(priority)
+    if fam == null {
+        error(
+            {
+                kind: "bug",
+                reason: "bad_priority",
+                message: "heap.push: priority must be an int, float, decimal or string, got {type_of(priority)}",
+            },
+        )
+    }
+    if h.family != null and h.family != fam {
+        error(
+            {
+                kind: "bug",
+                reason: "bad_priority",
+                message: "heap.push: a {type_of(priority)} priority cannot be ordered against this heap's {h.family} priorities",
+            },
+        )
+    }
+    node = { p: priority, v: value, s: h.seq, l: null, r: null }
+    { root: meld(h.root, node), count: h.count + 1, seq: h.seq + 1, family: fam }
+}
+
+## Returns `[priority, value]` of the smallest item, or null when the heap is
+## empty. The heap is unchanged.
+##
+## errors: `bug`/`not_a_heap` when `h` is not a heap.
+export fn peek(h) {
+    check_heap("peek", h)
+    if h.root == null { null } else { [h.root.p, h.root.v] }
+}
+
+## Removes the smallest item; returns `[[priority, value], new_heap]`.
+##
+## errors: `heap`/`empty` when the heap is empty; `bug`/`not_a_heap` when `h`
+## is not a heap.
+##
+## example:
+##   let (item, rest) = heap.pop(h)
+export fn pop(h) {
+    check_heap("pop", h)
+    if h.root == null {
+        error({ kind: "heap", reason: "empty", message: "heap.pop: the heap is empty" })
+    }
+    root = h.root
+    rest = {
+        root: meld(root.l, root.r),
+        count: h.count - 1,
+        seq: h.seq,
+        family: if h.count == 1 { null } else { h.family },
+    }
+    [[root.p, root.v], rest]
+}
+
+## Returns a heap built from a list of `[priority, value]` pairs.
+##
+## errors: `bug`/`bad_argument` when `pairs` is not a list of two-element
+## lists; `bug`/`bad_priority` as for `push`.
+##
+## example:
+##   h = heap.from_list([[3, "c"], [1, "a"]])
 export fn from_list(pairs) {
-    mut h = null
+    unless is_list(pairs) {
+        error(
+            {
+                kind: "bug",
+                reason: "bad_argument",
+                message: "heap.from_list: pairs must be a list of [priority, value] pairs, got {type_of(pairs)}",
+            },
+        )
+    }
+    mut h = new()
     for pair in pairs {
+        unless is_list(pair) and len(pair) == 2 {
+            error(
+                {
+                    kind: "bug",
+                    reason: "bad_argument",
+                    message: "heap.from_list: each pair must be [priority, value], got {pair}",
+                },
+            )
+        }
         h = push(h, pair[0], pair[1])
     }
     h
 }
 
-## top_k(items, k) -> the k smallest values of a plain list, ascending.
-export fn top_k(items, k) = take(sort(items), k)
+## Returns the `k` smallest values of a plain list, ascending. A `k` larger
+## than the list returns the whole list sorted.
+##
+## errors: `bug`/`bad_argument` when `items` is not a list, `k` is not a
+## non-negative Int, or the items cannot be ordered against each other (maps,
+## or a mix such as ints and strings).
+##
+## example:
+##   heap.top_k([5, 1, 4, 2], 2)   # [1, 2]
+export fn top_k(items, k) {
+    unless is_list(items) {
+        error(
+            {
+                kind: "bug",
+                reason: "bad_argument",
+                message: "heap.top_k: items must be a list, got {type_of(items)}",
+            },
+        )
+    }
+    unless type_of(k) == "int" and k >= 0 {
+        error(
+            {
+                kind: "bug",
+                reason: "bad_argument",
+                message: "heap.top_k: k must be a non-negative int, got {k}",
+            },
+        )
+    }
+    mut fam = null
+    for x in items {
+        f = family(x)
+        if f == null or fam != null and f != fam {
+            error(
+                {
+                    kind: "bug",
+                    reason: "bad_argument",
+                    message: "heap.top_k: items must all be numbers, all decimals or all strings, got a {type_of(x)}",
+                },
+            )
+        }
+        fam = f
+    }
+    take(sort(items), k)
+}

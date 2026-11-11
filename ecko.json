@@ -1,10 +1,11 @@
 {
   "module": "github.com/ecko-lang/heap",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "entrypoint": "main.ecko",
   "description": "A priority queue (min-heap) for Ecko: push/pop/peek, heapify, and top-k. Immutable skew heap. Pure - no capabilities.",
   "author": "Sean Nieuwoudt <sean@underwulf.com>",
   "license": "MIT",
   "capabilities": [],
-  "dependencies": {}
+  "dependencies": {},
+  "ecko": "0.81.0"
 }
